@@ -1,18 +1,29 @@
 import os
 import yaml
+import sys
 from dotenv import load_dotenv
+
 from langchain_core.prompts import PromptTemplate, FewShotPromptTemplate
 from langchain_openai import ChatOpenAI
 from langchain_core.example_selectors import SemanticSimilarityExampleSelector
 from langchain_community.vectorstores import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
+from pydantic import BaseModel
+
 
 __import__('pysqlite3')
-import sys
-
-sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 
 load_dotenv()
+sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+
+
+class DataSchema(BaseModel):
+    example_prompt: str
+    examples: list[dict]
+    prefix: str
+    suffix: str
+    input_variables: list[str]
+
 MODEL = os.getenv("MODEL_NAME", "gpt-5")
 
 llm = ChatOpenAI(model=MODEL, temperature=0)
@@ -21,46 +32,23 @@ embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 with open("prompts_config.yaml", "r", encoding="utf-8") as f:
     data = yaml.safe_load(f)
 
-# example_prompt = PromptTemplate.from_template(
-#     "Ввод: {input}\nВывод: {output}"
-# )
-# examples = [
-#     {"input": "happy", "output": "sad"},
-#     {"input": "tall", "output": "short"}
-# ]
-example_prompt = PromptTemplate.from_template("Вопрос: {question}\nОтвет: {answer}")
-examples = [
-    {"question": "Что делать, если опоздал на работу?",
-     "answer": "Притворись, что это спецплан компании по тестированию терпения коллег."},
-    {"question": "Как победить лень?",
-     "answer": "Скажи лени, что завтра — её выходной, и действуй, пока она отдыхает."},
-    {"question": "Что делать, если забыл день рождения друга?",
-     "answer": "Сделай вид, что это сюрприз для него, и улыбайся, когда он удивлённо морщит лоб."}
-]
+prompt_data = DataSchema(**data)
 
+example_prompt = PromptTemplate.from_template(prompt_data.example_prompt)
 example_selector = SemanticSimilarityExampleSelector.from_examples(
-    examples=examples,
+    examples=prompt_data.examples,
     embeddings=embeddings,
     vectorstore_cls=Chroma,
     k=2  # выбираем 2 ближайших примера
 )
-# prompt = FewShotPromptTemplate(
-#     examples=examples,
-#     example_prompt=example_prompt,
-#     prefix="Дайте антоним каждого слова:",
-#     suffix="Ввод: {input}\nВывод:",
-#     input_variables=["input"]
-# )
 prompt = FewShotPromptTemplate(
     example_selector=example_selector,
     example_prompt=example_prompt,
-    prefix="Отвечай на вопросы в шутливо-ироничном стиле, как в примерах:",
-    suffix="Вопрос: {question}\nОтвет:",
-    input_variables=["question"]
+    prefix=prompt_data.prefix,
+    suffix=prompt_data.suffix,
+    input_variables=prompt_data.input_variables,
 )
-# formatted_prompt = prompt.format(input="young")
-# response = llm.invoke(formatted_prompt)
 question = "Как объяснить начальнику, что проект задерживается?"
 formatted_prompt = prompt.format(question=question)
 response = llm.invoke(formatted_prompt)
-print(response.content) # Вывод: old
+print(response.content)
