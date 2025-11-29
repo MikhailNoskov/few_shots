@@ -1,4 +1,5 @@
 import os
+import yaml
 from dotenv import load_dotenv
 from langchain_core.prompts import PromptTemplate, FewShotPromptTemplate
 from langchain_openai import ChatOpenAI
@@ -12,7 +13,7 @@ MODEL = os.getenv("MODEL_NAME", "gpt-5")
 llm = ChatOpenAI(model=MODEL, temperature=0)
 embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
-with open("prompts.yaml", "r", encoding="utf-8") as f:
+with open("prompts_config.yaml", "r", encoding="utf-8") as f:
     data = yaml.safe_load(f)
 
 # example_prompt = PromptTemplate.from_template(
