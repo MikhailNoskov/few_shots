@@ -39,7 +39,7 @@ example_selector = SemanticSimilarityExampleSelector.from_examples(
     examples=prompt_data.examples,
     embeddings=embeddings,
     vectorstore_cls=Chroma,
-    k=2  # выбираем 2 ближайших примера
+    k=2
 )
 prompt = FewShotPromptTemplate(
     example_selector=example_selector,
@@ -48,7 +48,7 @@ prompt = FewShotPromptTemplate(
     suffix=prompt_data.suffix,
     input_variables=prompt_data.input_variables,
 )
-question = "Как объяснить начальнику, что проект задерживается?"
+question = input("Вопрос: ")
 formatted_prompt = prompt.format(question=question)
 response = llm.invoke(formatted_prompt)
 print(response.content)
